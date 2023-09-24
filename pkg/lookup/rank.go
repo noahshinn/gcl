@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/noahshinn024/gcl/pkg/lookup/utils"
 )
@@ -16,6 +17,8 @@ type CommitRankResult struct {
 	Commit *Commit
 }
 
+const rankCommitsSemSize = 100
+
 func RankCommits(query string, commits []*Commit, numHits int) ([]CommitRankResult, error) {
 	textcommits := utils.Map(commits, func(commit *Commit, _ int) string {
 		return commit.Message
@@ -27,19 +30,38 @@ func RankCommits(query string, commits []*Commit, numHits int) ([]CommitRankResu
 	}
 	avgDocumentLength := float64(commitsLength) / float64(len(commits))
 
-	results := make([]CommitRankResult, len(commits))
+	type result struct {
+		commitRankResult CommitRankResult
+		err              error
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, rankCommitsSemSize)
+	results := make([]*result, len(commits))
 	for i, inputItem := range commits {
-		res, err := computeResult(query, inputItem, commits, k1, b, avgDocumentLength)
-		if err != nil {
-			return nil, err
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(i int, inputItem *Commit) {
+			defer func() { <-sem }()
+			defer wg.Done()
+			res, err := computeResult(query, inputItem, commits, k1, b, avgDocumentLength)
+			results[i] = &result{
+				commitRankResult: res,
+				err:              err,
+			}
+		}(i, inputItem)
+	}
+	wg.Wait()
+
+	for _, result := range results {
+		if result.err != nil {
+			return nil, result.err
 		}
-		results[i] = res
 	}
 
 	rankHeap := resultHeap{}
 	heap.Init(&rankHeap)
-	for _, result := range results {
-		heap.Push(&rankHeap, result)
+	for _, res := range results {
+		heap.Push(&rankHeap, res.commitRankResult)
 	}
 
 	maxNumResults := min(numHits, len(rankHeap))
