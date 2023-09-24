@@ -41,8 +41,27 @@ func (c *Commit) Display() string {
 		refsDisplay = utils.YELLOW + " (" + utils.RESET + strings.Join(coloredRefs, utils.YELLOW+", "+utils.RESET) + utils.YELLOW + ")" + utils.RESET
 	}
 
-	return fmt.Sprintf("%scommit %s%s%s\nAuthor: %s <%s>\nDate:   %s\nURL: %s\n\n    %s\n\n",
-		utils.YELLOW, c.Hash, utils.RESET, refsDisplay, c.AuthorName, c.AuthorEmail, c.Timestamp.Format("Mon Jan 2 15:04:05 2006 -0700"), c.RemoteURL, c.Message)
+	curTime := time.Now()
+	diff := curTime.Sub(c.Timestamp)
+	timeDiffDisplay := buildTimeDiffDisplay(diff)
+
+	return fmt.Sprintf("%scommit %s%s%s\nAuthor: %s <%s>\nDate:   %s\nURL: %s\n%s\n\n    %s\n\n",
+		utils.YELLOW, c.Hash, utils.RESET, refsDisplay, c.AuthorName, c.AuthorEmail, c.Timestamp.Format("Mon Jan 2 15:04:05 2006 -0700"), c.RemoteURL, timeDiffDisplay, c.Message)
+}
+
+func buildTimeDiffDisplay(diff time.Duration) string {
+	prefix := "Committed "
+	if diff < time.Minute {
+		return utils.BOLD_MAGENTA + prefix + "just now" + utils.RESET
+	} else if diff < time.Hour {
+		return utils.BOLD_MAGENTA + prefix + fmt.Sprintf("%dm ago", int(diff.Minutes())) + utils.RESET
+	} else if diff < time.Hour*24 {
+		return utils.BOLD_MAGENTA + prefix + fmt.Sprintf("%dh ago", int(diff.Hours())) + utils.RESET
+	} else if diff < time.Hour*72 {
+		return utils.MAGENTA + prefix + fmt.Sprintf("%dh ago", int(diff.Hours()/24)) + utils.RESET
+	} else {
+		return utils.MAGENTA + prefix + fmt.Sprintf("%dd ago", int(diff.Hours()/24)) + utils.RESET
+	}
 }
 
 func (gc *GitClient) getRemoteURL() (string, error) {
@@ -52,7 +71,6 @@ func (gc *GitClient) getRemoteURL() (string, error) {
 		return "", err
 	}
 
-	// Convert git SSH URLs to HTTPS for better compatibility with terminals
 	url := strings.TrimSpace(string(output))
 	url = strings.Replace(url, "git@", "", 1)
 	url = strings.Replace(url, "github.com:", "github.com/", 1)
