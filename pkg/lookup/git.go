@@ -3,6 +3,7 @@ package lookup
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,9 +16,21 @@ type Commit struct {
 	AuthorEmail string
 	Hash        string
 	Message     string
-	Timestamp   time.Time
+	CreatedAt   time.Time
 	Refs        string
 	RemoteURL   string
+}
+
+type RankCommitItem struct {
+	Commit *Commit
+}
+
+func (rci *RankCommitItem) GetItem() interface{} {
+	return rci.Commit
+}
+
+func (rci *RankCommitItem) GetText() string {
+	return rci.Commit.Message
 }
 
 type GitClient struct {
@@ -40,28 +53,10 @@ func (c *Commit) Display() string {
 		}
 		refsDisplay = utils.YELLOW + " (" + utils.RESET + strings.Join(coloredRefs, utils.YELLOW+", "+utils.RESET) + utils.YELLOW + ")" + utils.RESET
 	}
-
-	curTime := time.Now()
-	diff := curTime.Sub(c.Timestamp)
-	timeDiffDisplay := buildTimeDiffDisplay(diff)
+	timeDiffDisplay := utils.BuildTimeDiffDisplay(c.CreatedAt, "committed")
 
 	return fmt.Sprintf("%scommit %s%s%s\nAuthor: %s <%s>\nDate:   %s\nURL: %s\n%s\n\n    %s\n\n",
-		utils.YELLOW, c.Hash, utils.RESET, refsDisplay, c.AuthorName, c.AuthorEmail, c.Timestamp.Format("Mon Jan 2 15:04:05 2006 -0700"), c.RemoteURL, timeDiffDisplay, c.Message)
-}
-
-func buildTimeDiffDisplay(diff time.Duration) string {
-	prefix := "Committed "
-	if diff < time.Minute {
-		return utils.BOLD_MAGENTA + prefix + "just now" + utils.RESET
-	} else if diff < time.Hour {
-		return utils.BOLD_MAGENTA + prefix + fmt.Sprintf("%dm ago", int(diff.Minutes())) + utils.RESET
-	} else if diff < time.Hour*24 {
-		return utils.BOLD_MAGENTA + prefix + fmt.Sprintf("%dh ago", int(diff.Hours())) + utils.RESET
-	} else if diff < time.Hour*72 {
-		return utils.MAGENTA + prefix + fmt.Sprintf("%dh ago", int(diff.Hours()/24)) + utils.RESET
-	} else {
-		return utils.MAGENTA + prefix + fmt.Sprintf("%dd ago", int(diff.Hours()/24)) + utils.RESET
-	}
+		utils.YELLOW, c.Hash, utils.RESET, refsDisplay, c.AuthorName, c.AuthorEmail, c.CreatedAt.Format("Mon Jan 2 15:04:05 2006 -0700"), c.RemoteURL, timeDiffDisplay, c.Message)
 }
 
 func (gc *GitClient) getRemoteURL() (string, error) {
@@ -80,6 +75,20 @@ func (gc *GitClient) getRemoteURL() (string, error) {
 	}
 
 	return url, nil
+}
+
+func (gc *GitClient) GetCurrentRepoInfo() (owner, repo string, err error) {
+	cmd := exec.Command("git", "remote", "-v")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", "", err
+	}
+	r := regexp.MustCompile(`github\.com[/:](?P<owner>[\w\-]+)/(?P<repo>[\w\-]+)(\.git)?\s`)
+	matches := r.FindStringSubmatch(string(output))
+	if len(matches) >= 3 {
+		return matches[1], matches[2], nil
+	}
+	return "", "", fmt.Errorf("could not parse git remote URL")
 }
 
 func (gc *GitClient) GetCommitsFromLastDay(since string) ([]*Commit, error) {
@@ -112,7 +121,7 @@ func (gc *GitClient) GetCommitsFromLastDay(since string) ([]*Commit, error) {
 			AuthorName:  parts[1],
 			AuthorEmail: parts[2],
 			Message:     parts[3],
-			Timestamp:   time.Unix(unixTimestamp, 0),
+			CreatedAt:   time.Unix(unixTimestamp, 0),
 			Refs:        parts[5],
 			RemoteURL:   fmt.Sprintf("%s/commit/%s", remoteBaseURL, parts[0]),
 		})

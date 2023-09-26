@@ -2,7 +2,7 @@
 
 ## Git commit lookup
 
-This command enables lexical search for git commit messages.
+This command enables lexical search for git commit messages and GitHub issues.
 
 ## Installation
 
@@ -36,4 +36,10 @@ gcl --query "some change about search and ranking" --since "2014-02-12T16:36:00-
 
 ```bash
 gcl --query "some change about search and ranking" --n 1000
+```
+
+To search for GitHub issues, set the `mode` to `issues`. Note: the `--since` flag is not supported for issues yet.
+
+```bash
+gcl --query "some issue about orphan processes"
 ```
