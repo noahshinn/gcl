@@ -14,6 +14,7 @@ type Lookup struct {
 	Query      string
 	MaxResults int
 	Since      string
+	Author     string
 	Mode       LookupMode
 }
 
@@ -62,7 +63,7 @@ func (l *Lookup) runCommits() ([]string, error) {
 	if !gc.IsInsideGitWorkTree() {
 		return nil, fmt.Errorf("not inside a git work tree")
 	}
-	commits, err := gc.GetCommitsFromLastDay(l.Since)
+	commits, err := gc.GetCommits(l.Since, l.Author)
 	if err != nil {
 		return nil, err
 	}

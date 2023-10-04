@@ -91,9 +91,9 @@ func (gc *GitClient) GetCurrentRepoInfo() (owner, repo string, err error) {
 	return "", "", fmt.Errorf("could not parse git remote URL")
 }
 
-func (gc *GitClient) GetCommitsFromLastDay(since string) ([]*Commit, error) {
+func (gc *GitClient) GetCommits(since string, author string) ([]*Commit, error) {
 	const separator = "<SEPARATOR>"
-	cmd := exec.Command("git", "log", fmt.Sprintf("--since=\"%s\"", since), "--pretty=format:%H"+separator+"%an"+separator+"%ae"+separator+"%s"+separator+"%ct"+separator+"%D")
+	cmd := exec.Command("git", "log", fmt.Sprintf("--since=\"%s\"", since), fmt.Sprintf("--author=\"%s\"", author), "--pretty=format:%H"+separator+"%an"+separator+"%ae"+separator+"%s"+separator+"%ct"+separator+"%D")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
