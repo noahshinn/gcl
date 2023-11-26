@@ -9,7 +9,7 @@ This command enables lexical search for git commit messages and GitHub issues.
 Build from source
 
 ```bash
-go install github.com/noahshinn024/gcl/cmd@latest
+go install github.com/noahshinn/gcl/cmd@latest
 ```
 
 ## Usage
